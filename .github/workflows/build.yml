@@ -1,6 +1,6 @@
 name: Build Standalone App
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
@@ -37,8 +37,24 @@ jobs:
           name: app-${{ matrix.os }}
           path: dist/
 
-  create_release:
+  create_tag:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Create Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git tag v${{ github.run_number }}
+          git push origin v${{ github.run_number }}
+
+  create_release:
+    needs: create_tag
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -54,6 +70,13 @@ jobs:
           release_name: Release v${{ github.run_number }}
           draft: false
           prerelease: false
+
+  upload_artifacts:
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Download Ubuntu artifacts
         uses: actions/download-artifact@v2
