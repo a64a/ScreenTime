@@ -24,7 +24,7 @@ jobs:
 
       - name: Build standalone app
         run: |
-          pyinstaller --onefile --name myapp --icon=path/to/icon.ico path/to/your_script.py
+          pyinstaller --onefile --name myapp --icon=Icon.ico ../../ScreenTime.py
         shell: bash
 
       - name: Archive build artifacts
