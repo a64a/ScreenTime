@@ -28,7 +28,8 @@ jobs:
           pyinstaller --onefile --name ScreenTime --icon=.github/workflows/Icon.ico ScreenTime.py
 
       - name: List artifacts
-        run: ls -alh dist/
+        run: if [ "${{ matrix.os }}" = "windows-latest" ]; then dir dist/; else ls -alh dist/; fi
+        shell: bash
 
       - name: Upload build artifacts
         if: success()
@@ -80,7 +81,7 @@ jobs:
           echo "macOS artifacts:"
           ls -alh ./dist-macos/
           echo "Windows artifacts:"
-          ls -alh ./dist-windows/
+          dir ./dist-windows/
 
       - name: Upload artifacts to GitHub Releases
         uses: softprops/action-gh-release@v1
