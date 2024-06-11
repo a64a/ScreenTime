@@ -25,7 +25,6 @@ jobs:
       - name: Build standalone app
         run: |
           pyinstaller --onefile --name ScreenTime --icon=.github/workflows/Icon.ico ScreenTime.py
-        shell: bash
 
       - name: Upload build artifacts
         if: success()
