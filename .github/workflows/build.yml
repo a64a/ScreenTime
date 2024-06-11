@@ -17,9 +17,6 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Verify icon file exists
-        run: ls .github/workflows/Icon.ico
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -30,7 +27,7 @@ jobs:
           pyinstaller --onefile --name ScreenTime --icon=.github/workflows/Icon.ico ScreenTime.py
         shell: bash
 
-      - name: Archive build artifacts
+      - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v2
         with:
