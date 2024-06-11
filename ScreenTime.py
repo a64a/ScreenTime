@@ -3,6 +3,11 @@ import keyboard
 from datetime import datetime, timedelta
 import re
 import time
+import os
+import sys
+import tkinter as tk
+from tkinter import messagebox
+import webbrowser
 
 if platform.system() == "Darwin":
     import objc
@@ -20,6 +25,9 @@ if platform.system() == "Darwin":
 
 elif platform.system() == "Windows":
     import win32gui
+    from elevate import elevate
+
+    elevate()
 
     def get_focused_window_info():
         hwnd = win32gui.GetForegroundWindow()
@@ -28,6 +36,9 @@ elif platform.system() == "Windows":
 
 elif platform.system() == "Linux":
     from ewmh import EWMH
+
+    if os.geteuid() != 0:
+        os.execvp("sudo", ["sudo"] + ["python3"] + sys.argv)
 
     def get_focused_window_info():
         ewmh = EWMH()
@@ -54,34 +65,38 @@ def format_time_delta(td):
     formatted_time_diff += f"{milliseconds}ms"
     return formatted_time_diff.strip()
 
-def read_existing_log(file_path):
-    app_time_dict = {}
-    try:
-        with open(file_path, "r") as f:
-            for line in f:
-                match = re.match(r"<p>(\d+h )?(\d+m )?(\d+s )?(\d+ms): (.+)</p>", line.strip())
-                if match:
-                    hours = int(match.group(1).replace('h', '')) if match.group(1) else 0
-                    minutes = int(match.group(2).replace('m', '')) if match.group(2) else 0
-                    seconds = int(match.group(3).replace('s', '')) if match.group(3) else 0
-                    milliseconds = int(match.group(4).replace('ms', '')) if match.group(4) else 0
-                    app = match.group(5)
-                    time_spent = timedelta(hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
-                    app_time_dict[app] = time_spent
-    except FileNotFoundError:
-        pass
-    return app_time_dict
+def ensure_log_file_exists(log_file):
+    # Create the file if it does not exist
+    if not os.path.exists(log_file):
+        with open(log_file, "w") as f:
+            f.write("<html><body>\n</body></html>")
 
 def main():
     log_file = "window_focus_log.html"
-    app_time_dict = read_existing_log(log_file)
+    ensure_log_file_exists(log_file)
 
+    app_time_dict = {}
     prev_window = ""
     prev_time = datetime.now()
-    
-    while not keyboard.is_pressed('esc'): 
+    app_id = 0
+    app_ids = {}
+
+    # Open the log file in the default web browser
+    webbrowser.open('file://' + os.path.realpath(log_file))
+
+    root = tk.Tk()
+    root.title("Screen Time Tracker")
+
+    def stop_tracking():
+        root.quit()
+
+    stop_button = tk.Button(root, text="Stop Tracking", command=stop_tracking)
+    stop_button.pack(pady=20)
+
+    def update_log():
+        nonlocal prev_window, prev_time, app_id
         window_info = get_focused_window_info()
-        
+
         if window_info != prev_window:
             current_time = datetime.now()
             time_diff = current_time - prev_time
@@ -91,16 +106,30 @@ def main():
                     app_time_dict[prev_window] += time_diff
                 else:
                     app_time_dict[prev_window] = time_diff
-            
-            with open(log_file, "w") as f:
-                for app, total_time in app_time_dict.items():
-                    formatted_time_diff = format_time_delta(total_time)
-                    f.write(f"<p>{formatted_time_diff}: {app}</p>\n")
 
-            print(f"{prev_window} - {time_diff}")
+            if prev_window:
+                with open(log_file, "r+") as f:
+                    content = f.read()
+                    pattern = re.compile(f"<p id='{prev_window}'>.*?</p>")
+                    formatted_time_diff = format_time_delta(app_time_dict[prev_window])
+                    new_entry = f"<p id='{prev_window}'>{formatted_time_diff}: {prev_window}</p>"
+
+                    if pattern.search(content):
+                        content = pattern.sub(new_entry, content)
+                    else:
+                        content = content.replace("</body>", new_entry + "\n</body>")
+
+                    f.seek(0)
+                    f.write(content)
+                    f.truncate()
 
             prev_window = window_info
             prev_time = current_time
+
+        root.after(100, update_log)
+
+    root.after(100, update_log)
+    root.mainloop()
 
 if __name__ == "__main__":
     main()
