@@ -13,18 +13,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          node-version: '20'
+          python-version: '3.x'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
 
       - name: Build standalone app
         run: |
-          npx pkg . --targets node20 --output dist/ScreenTime
-        shell: bash
+          pyinstaller --onefile --name ScreenTime --icon=.github/workflows/Icon.ico ScreenTime.py
 
       - name: List artifacts
         run: if [ "${{ matrix.os }}" = "windows-latest" ]; then dir dist/; else ls -alh dist/; fi
