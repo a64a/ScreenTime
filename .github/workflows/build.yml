@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: true
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -25,6 +26,9 @@ jobs:
       - name: Build standalone app
         run: |
           pyinstaller --onefile --name ScreenTime --icon=.github/workflows/Icon.ico ScreenTime.py
+
+      - name: List artifacts
+        run: ls -alh dist/
 
       - name: Upload build artifacts
         if: success()
@@ -68,6 +72,15 @@ jobs:
         with:
           name: app-windows-latest
           path: ./dist-windows
+
+      - name: Verify artifacts presence
+        run: |
+          echo "Ubuntu artifacts:"
+          ls -alh ./dist-ubuntu/
+          echo "macOS artifacts:"
+          ls -alh ./dist-macos/
+          echo "Windows artifacts:"
+          ls -alh ./dist-windows/
 
       - name: Upload artifacts to GitHub Releases
         uses: softprops/action-gh-release@v1
