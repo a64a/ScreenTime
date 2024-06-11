@@ -17,6 +17,9 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Verify icon file exists
+        run: ls .github/workflows/Icon.ico
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -24,7 +27,7 @@ jobs:
 
       - name: Build standalone app
         run: |
-          pyinstaller --onefile --name myapp --icon=Icon.ico ../../ScreenTime.py
+          pyinstaller --onefile --name myapp --icon=.github/workflows/Icon.ico ScreenTime.py
         shell: bash
 
       - name: Archive build artifacts
@@ -38,13 +41,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download Ubuntu artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v2
         with:
           name: app-ubuntu-latest
           path: ./dist-ubuntu
 
-      - name: Download macOS artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v2
         with:
           name: app-macos-latest
