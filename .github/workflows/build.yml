@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -27,7 +27,7 @@ jobs:
 
       - name: Build standalone app
         run: |
-          pyinstaller --onefile --name myapp --icon=.github/workflows/Icon.ico ScreenTime.py
+          pyinstaller --onefile --name ScreenTime --icon=.github/workflows/Icon.ico ScreenTime.py
         shell: bash
 
       - name: Archive build artifacts
@@ -37,21 +37,41 @@ jobs:
           name: app-${{ matrix.os }}
           path: dist/
 
-  upload-artifacts:
+  create_release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Download Ubuntu artifacts
         uses: actions/download-artifact@v2
         with:
           name: app-ubuntu-latest
           path: ./dist-ubuntu
 
-      - name: Download artifacts
+      - name: Download macOS artifacts
         uses: actions/download-artifact@v2
         with:
           name: app-macos-latest
           path: ./dist-macos
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: app-windows-latest
+          path: ./dist-windows
 
       - name: Upload artifacts to GitHub Releases
         uses: softprops/action-gh-release@v1
@@ -59,5 +79,6 @@ jobs:
           files: |
             ./dist-ubuntu/*
             ./dist-macos/*
+            ./dist-windows/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
