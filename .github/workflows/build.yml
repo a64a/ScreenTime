@@ -24,33 +24,47 @@ jobs:
 
       - name: Build standalone app
         run: |
-          pyinstaller --onefile --name myapp --icon=Icon.ico ScreenTime.py
+          pyinstaller --onefile --name ScreenTime --icon=.github/workflows/Icon.ico ScreenTime.py
         shell: bash
 
-      - name: Archive build artifacts
+      - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v2
         with:
           name: app-${{ matrix.os }}
           path: dist/
 
-  upload-artifacts:
+  create_release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Download Ubuntu artifacts
         uses: actions/download-artifact@v2
         with:
           name: app-ubuntu-latest
           path: ./dist-ubuntu
 
-      - name: Download artifacts
+      - name: Download macOS artifacts
         uses: actions/download-artifact@v2
         with:
           name: app-macos-latest
           path: ./dist-macos
 
-      - name: Download artifacts
+      - name: Download Windows artifacts
         uses: actions/download-artifact@v2
         with:
           name: app-windows-latest
@@ -64,4 +78,4 @@ jobs:
             ./dist-macos/*
             ./dist-windows/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
