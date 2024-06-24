@@ -7,6 +7,10 @@ from PyQt5 import QtWidgets, QtCore
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+class MainApp(QtWidgets.QApplication):
+    def applicationSupportsSecureRestorableState(self):
+        return True
+
 if platform.system() == "Darwin":
     import objc
     from Cocoa import NSWorkspace, NSApplication, NSApp, NSRunningApplication
