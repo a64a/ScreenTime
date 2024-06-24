@@ -4,6 +4,7 @@ import os
 import sys
 import json
 from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtWidgets import QDateEdit, QLabel, QHBoxLayout
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
@@ -82,7 +83,10 @@ def write_data_to_file(data_file, data):
 class MplCanvas(FigureCanvas):
 
     def __init__(self, parent=None, width=8, height=6, dpi=100):
+        plt.style.use('dark_background')
         fig, self.ax = plt.subplots(figsize=(width, height), dpi=dpi)
+        fig.patch.set_facecolor('#2E2E2E')
+        self.ax.set_facecolor('#2E2E2E')
         super(MplCanvas, self).__init__(fig)
 
 def main():
@@ -98,12 +102,27 @@ def main():
     window.setWindowTitle("Screen Time Tracker")
     layout = QtWidgets.QVBoxLayout()
 
+    control_layout = QHBoxLayout()
+    layout.addLayout(control_layout)
+
+    start_date_edit = QDateEdit(calendarPopup=True)
+    start_date_edit.setDate(QtCore.QDate.currentDate())
+    end_date_edit = QDateEdit(calendarPopup=True)
+    end_date_edit.setDate(QtCore.QDate.currentDate())
+    today_button = QtWidgets.QPushButton("Today")
+
+    control_layout.addWidget(QLabel("Start Date:"))
+    control_layout.addWidget(start_date_edit)
+    control_layout.addWidget(QLabel("End Date:"))
+    control_layout.addWidget(end_date_edit)
+    control_layout.addWidget(today_button)
+
     stop_button = QtWidgets.QPushButton("Stop Tracking")
     layout.addWidget(stop_button)
-    
+
     canvas = MplCanvas(window, width=10, height=6, dpi=100)
     layout.addWidget(canvas)
-    
+
     window.setLayout(layout)
 
     def stop_tracking():
@@ -138,7 +157,10 @@ def main():
 
     def update_plot():
         canvas.ax.clear()
-        day_keys = sorted(app_time_dict.keys())
+        start_date = start_date_edit.date().toPyDate()
+        end_date = end_date_edit.date().toPyDate()
+        day_keys = sorted(key for key in app_time_dict.keys() if start_date <= datetime.strptime(key, '%Y-%m-%d').date() <= end_date)
+        
         app_names = set()
         for day in day_keys:
             for app in app_time_dict[day].keys():
@@ -160,15 +182,30 @@ def main():
                     bar = canvas.ax.bar(i, data[app][i], bottom=bottom, label=app if i == 0 else "", color=plt.cm.tab20(app_names.index(app) / len(app_names)))
                     bars.append(bar)
                     bottom += data[app][i]
-                    canvas.ax.text(i, bottom - data[app][i] / 2, format_time_delta(timedelta(seconds=data[app][i])), ha='center', va='center', color='black', fontsize=8)
+                    canvas.ax.text(i, bottom - data[app][i] / 2, format_time_delta(timedelta(seconds=data[app][i])), ha='center', va='center', color='white', fontsize=8)
 
         canvas.ax.set_xticks(range(len(day_keys)))
-        canvas.ax.set_xticklabels(day_keys, rotation=45, ha='right')
-        canvas.ax.set_xlabel('Days')
-        canvas.ax.set_ylabel('Time Active')
-        canvas.ax.set_title('Most Used Applications Over Days')
+        canvas.ax.set_xticklabels(day_keys, rotation=45, ha='right', color='white')
+        canvas.ax.set_xlabel('Days', color='white')
+        canvas.ax.set_ylabel('Time Active', color='white')
+        canvas.ax.set_title('Most Used Applications Over Days', color='white')
+        canvas.ax.spines['bottom'].set_color('white')
+        canvas.ax.spines['top'].set_color('white')
+        canvas.ax.spines['left'].set_color('white')
+        canvas.ax.spines['right'].set_color('white')
+        canvas.ax.tick_params(axis='both', colors='white')
 
         canvas.draw()
+
+    def set_today():
+        today = QtCore.QDate.currentDate()
+        start_date_edit.setDate(today)
+        end_date_edit.setDate(today)
+        update_plot()
+
+    today_button.clicked.connect(set_today)
+    start_date_edit.dateChanged.connect(update_plot)
+    end_date_edit.dateChanged.connect(update_plot)
 
     update_log()
     window.show()
