@@ -8,13 +8,13 @@ from PyQt5.QtWidgets import QDateEdit, QLabel, QHBoxLayout
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+
 class MainApp(QtWidgets.QApplication):
     def applicationSupportsSecureRestorableState(self):
         return True
 
+
 if platform.system() == "Darwin":
-    import objc
-    from Cocoa import NSWorkspace, NSApplication, NSApp, NSRunningApplication
     from Quartz import CGWindowListCopyWindowInfo, kCGWindowListOptionOnScreenOnly, kCGNullWindowID
 
     def get_focused_window_info():
@@ -51,6 +51,7 @@ elif platform.system() == "Linux":
             return window_name if window_name else "No focused window"
         return "No focused window"
 
+
 def format_time_delta(td):
     total_seconds = td.total_seconds()
     hours = int(total_seconds // 3600)
@@ -67,18 +68,22 @@ def format_time_delta(td):
     else:
         return f"{milliseconds}ms"
 
+
 def ensure_data_file_exists(data_file):
     if not os.path.exists(data_file):
         with open(data_file, "w") as f:
             json.dump({}, f)
 
+
 def read_data_from_file(data_file):
     with open(data_file, "r") as f:
         return json.load(f)
 
+
 def write_data_to_file(data_file, data):
     with open(data_file, "w") as f:
         json.dump(data, f)
+
 
 class MplCanvas(FigureCanvas):
 
@@ -88,6 +93,7 @@ class MplCanvas(FigureCanvas):
         fig.patch.set_facecolor('#2E2E2E')
         self.ax.set_facecolor('#2E2E2E')
         super(MplCanvas, self).__init__(fig)
+
 
 def main():
     data_file = "app_usage_data.json"
@@ -149,9 +155,9 @@ def main():
 
             prev_window = window_info
             prev_time = current_time
-        
+
         write_data_to_file(data_file, app_time_dict)
-        
+
         update_plot()
         QtCore.QTimer.singleShot(100, update_log)
 
@@ -159,8 +165,9 @@ def main():
         canvas.ax.clear()
         start_date = start_date_edit.date().toPyDate()
         end_date = end_date_edit.date().toPyDate()
-        day_keys = sorted(key for key in app_time_dict.keys() if start_date <= datetime.strptime(key, '%Y-%m-%d').date() <= end_date)
-        
+        day_keys = sorted(
+            key for key in app_time_dict.keys() if start_date <= datetime.strptime(key, '%Y-%m-%d').date() <= end_date)
+
         app_names = set()
         for day in day_keys:
             for app in app_time_dict[day].keys():
@@ -179,10 +186,12 @@ def main():
             bottom = 0
             for app in app_names:
                 if data[app][i] > 0:
-                    bar = canvas.ax.bar(i, data[app][i], bottom=bottom, label=app if i == 0 else "", color=plt.cm.tab20(app_names.index(app) / len(app_names)))
+                    bar = canvas.ax.bar(i, data[app][i], bottom=bottom, label=app if i == 0 else "",
+                                        color=plt.cm.tab20(app_names.index(app) / len(app_names)))
                     bars.append(bar)
                     bottom += data[app][i]
-                    canvas.ax.text(i, bottom - data[app][i] / 2, format_time_delta(timedelta(seconds=data[app][i])), ha='center', va='center', color='white', fontsize=8)
+                    canvas.ax.text(i, bottom - data[app][i] / 2, format_time_delta(timedelta(seconds=data[app][i])),
+                                   ha='center', va='center', color='white', fontsize=8)
 
         canvas.ax.set_xticks(range(len(day_keys)))
         canvas.ax.set_xticklabels(day_keys, rotation=45, ha='right', color='white')
@@ -227,6 +236,7 @@ def main():
     update_log()
     window.show()
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()
