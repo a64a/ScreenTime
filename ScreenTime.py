@@ -197,6 +197,23 @@ def main():
 
         canvas.draw()
 
+        def on_hover(event):
+            canvas.ax.texts.clear()
+            if event.inaxes == canvas.ax:
+                for i, bar in enumerate(bars):
+                    if bar.contains(event)[0]:
+                        idx = i % len(app_names)
+                        app_name = app_names[idx]
+                        canvas.ax.annotate(f'{app_name}',
+                                           xy=(event.xdata, event.ydata),
+                                           xytext=(event.xdata, event.ydata + 50),
+                                           arrowprops=dict(facecolor='yellow', shrink=0.05),
+                                           fontsize=12, color='yellow')
+                        canvas.draw()
+                        break
+
+        canvas.mpl_connect('motion_notify_event', on_hover)
+
     def set_today():
         today = QtCore.QDate.currentDate()
         start_date_edit.setDate(today)
