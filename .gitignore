@@ -5,11 +5,8 @@
 /httpRequests/
 /dataSources/
 /dataSources.local.xml
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/usage.statistics.xml
-.idea/dictionaries
-.idea/shelf
+.idea
+.idea/*
 *.iml
 *.class
 *.jar
