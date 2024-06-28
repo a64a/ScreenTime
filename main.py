@@ -18,6 +18,8 @@ from PyQt5.QtWidgets import (
     QSystemTrayIcon,
     QAction,
     QMenu,
+    QVBoxLayout,
+    QDialog,
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
@@ -37,23 +39,17 @@ class MyApplication(QApplication):
     def __init__(self, argv):
         super().__init__(argv)
 
-    @staticmethod
-    def applicationSupportsSecureRestorableState(app):
-        return True
-
 
 def check_dependencies():
     try:
         import psutil
     except ImportError:
-        print("psutil is not installed. Please install it using 'pip install psutil'.")
         sys.exit(1)
 
     if platform.system() == "Linux":
         try:
             import ewmh
         except ImportError:
-            print("ewmh is not installed. Please install it using 'pip install ewmh'.")
             sys.exit(1)
 
 
@@ -66,7 +62,6 @@ if platform.system() == "Darwin":
         kCGNullWindowID,
     )
 
-
     def get_focused_app():
         options = kCGWindowListOptionOnScreenOnly
         window_list = CGWindowListCopyWindowInfo(options, kCGNullWindowID)
@@ -78,8 +73,8 @@ if platform.system() == "Darwin":
 
 elif platform.system() == "Windows":
     import win32gui
+    import win32process
     import psutil
-
 
     def get_focused_app():
         hwnd = win32gui.GetForegroundWindow()
@@ -95,7 +90,6 @@ elif platform.system() == "Windows":
 
 elif platform.system() == "Linux":
     from ewmh import EWMH
-
 
     def get_focused_app():
         ewmh = EWMH()
@@ -196,116 +190,110 @@ class PlotCanvas(FigureCanvas):
         super(PlotCanvas, self).__init__(fig)
 
 
-def invert_color(color):
-    if isinstance(color, str):
-        color = matplotlib.colors.to_rgba(color)
-    r, g, b, _ = color
-    return 1 - r, 1 - g, 1 - b
+class DetailedViewWindow(QDialog):
+    def __init__(self, day, apps_data):
+        super().__init__()
+        self.setWindowTitle(f"Details for {day}")
+        self.setStyleSheet("background-color: #1C1C1E; color: white;")
+        self.setModal(True)
+        self.showMaximized()
+        layout = QVBoxLayout()
+        self.canvas = PlotCanvas(width=10, height=6, dpi=100)
+        layout.addWidget(self.canvas)
+        self.setLayout(layout)
 
+        app_names = []
+        app_values = []
 
-def show_day(day, apps_data):
-    print("show_day invoked")
-    global detailed_view_active
-    detailed_view_active = True
-    canvas.ax.clear()
+        total_seconds = sum(apps_data.values())
+        threshold = total_seconds * 0.01042
 
-    app_names = []
-    app_values = []
+        for app, seconds in apps_data.items():
+            if seconds >= threshold:
+                app_names.append(app)
+                app_values.append(seconds)
 
-    total_seconds = sum(apps_data.values())
-    threshold = total_seconds * 0.01042
+        if not app_values:
+            return
 
-    for app, seconds in apps_data.items():
-        if seconds >= threshold:
-            app_names.append(app)
-            app_values.append(seconds)
+        total_seconds = sum(app_values)
+        app_values_hours = [value / 3600 for value in app_values]
+        dark_colors = [
+            "#7776B3",
+            "#9B86BD",
+            "#E2BBE9",
+            "#606060",
+            "#2a2a2c",
+            "#6850cf",
+            "#3b4b74",
+            "#888888",
+            "#929292",
+            "#3e2c4e",
+        ]
+        colors = [dark_colors[i % len(dark_colors)] for i in range(len(app_names))]
 
-    if not app_values:
-        return
+        wedges, texts, autotexts = self.canvas.ax.pie(
+            app_values_hours,
+            labels=None,
+            colors=colors,
+            autopct=lambda p: "",
+            startangle=140,
+            wedgeprops=dict(width=0.5, edgecolor="#1c1e1e"),
+        )
 
-    total_seconds = sum(app_values)
-    app_values_hours = [value / 3600 for value in app_values]
-    dark_colors = [
-        "#7776B3",
-        "#9B86BD",
-        "#E2BBE9",
-        "#606060",
-        "#2a2a2c",
-        "#6850cf",
-        "#3b4b74",
-        "#888888",
-        "#929292",
-        "#3e2c4e",
-    ]
-    colors = [dark_colors[i % len(dark_colors)] for i in range(len(app_names))]
+        for i, (wedge, app) in enumerate(zip(wedges, app_names)):
+            angle = (wedge.theta2 + wedge.theta1) / 2
+            x = wedge.r * np.cos(np.radians(angle))
+            y = wedge.r * np.sin(np.radians(angle))
+            arrow_x = wedge.r * 1.3 * np.cos(np.radians(angle))
+            arrow_y = wedge.r * 1.3 * np.sin(np.radians(angle))
+            self.canvas.ax.annotate(
+                format_time(timedelta(seconds=app_values[i])),
+                xy=(x, y),
+                xytext=(arrow_x, arrow_y),
+                arrowprops=dict(
+                    facecolor="white", edgecolor="white", arrowstyle="-", linestyle="-"
+                ),
+                ha="center",
+                va="center",
+                color="white",
+                fontsize=10,
+            )
 
-    wedges, texts, autotexts = canvas.ax.pie(
-        app_values_hours,
-        labels=None,
-        colors=colors,
-        autopct=lambda p: "",
-        startangle=140,
-        wedgeprops=dict(width=0.5, edgecolor="#1c1e1e"),
-    )
-
-    for i, (wedge, app) in enumerate(zip(wedges, app_names)):
-        angle = (wedge.theta2 + wedge.theta1) / 2
-        x = wedge.r * np.cos(np.radians(angle))
-        y = wedge.r * np.sin(np.radians(angle))
-        arrow_x = wedge.r * 1.3 * np.cos(np.radians(angle))
-        arrow_y = wedge.r * 1.3 * np.sin(np.radians(angle))
-        canvas.ax.annotate(
-            format_time(timedelta(seconds=app_values[i])),
-            xy=(x, y),
-            xytext=(arrow_x, arrow_y),
-            arrowprops=dict(
-                facecolor="white", edgecolor="white", arrowstyle="-", linestyle="-"
-            ),
+        total_time_str = format_time(timedelta(seconds=total_seconds))
+        self.canvas.ax.text(
+            0,
+            0,
+            f"{total_time_str}\nTotal time",
             ha="center",
             va="center",
             color="white",
-            fontsize=10,
+            fontsize=16,
         )
 
-    total_time_str = format_time(timedelta(seconds=total_seconds))
-    canvas.ax.text(
-        0,
-        0,
-        f"{total_time_str}\nTotal time",
-        ha="center",
-        va="center",
-        color="white",
-        fontsize=16,
-    )
+        patches = [
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                label=app_names[i],
+                markersize=10,
+                markerfacecolor=colors[i],
+            )
+            for i in range(len(app_names))
+        ]
+        if patches:
+            self.canvas.ax.legend(
+                handles=patches,
+                loc="upper center",
+                bbox_to_anchor=(0.5, -0.1),
+                fontsize=10,
+                frameon=False,
+                ncol=7
+            )
+        self.canvas.draw()
 
-    canvas.ax.set_title(
-        f"Details for {day}", color="white", fontsize=14, pad=60
-    )
-    back_to_week_btn.show()
-
-    patches = [
-        plt.Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            label=app_names[i],
-            markersize=10,
-            markerfacecolor=colors[i],
-        )
-        for i in range(len(app_names))
-    ]
-    if patches:
-        canvas.ax.legend(
-            handles=patches,
-            loc="upper center",
-            bbox_to_anchor=(0.5, -0.1),
-            fontsize=10,
-            frameon=False,
-            ncol=len(app_names),
-        )
-    back_to_week_btn.show()
-    canvas.draw()
 
 def detailed_view_on_click(event):
     global detailed_view_active, bars
@@ -321,11 +309,12 @@ def detailed_view_on_click(event):
             if bar.contains(event)[0]:
                 dayindex = int(bar.get_x() + bar.get_width() / 2)
                 day_str = day_keys[dayindex]
-                show_day(day_str, app_data.get(day_str, {}))
+                detailed_view_window = DetailedViewWindow(day_str, app_data.get(day_str, {}))
+                detailed_view_window.exec_()
                 return
 
+
 def update_plot():
-    print("update_plot invoked")
     global detailed_view_active, bars
     if detailed_view_active:
         return
@@ -367,6 +356,9 @@ def update_plot():
     canvas.ax.tick_params(axis='both', colors='white')
     canvas.ax.relim()
     canvas.ax.autoscale_view()
+
+    canvas.ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fontsize=10, frameon=False, ncol=4)
+
     date_range_lbl.setText(f"Viewing: {current_start} to {current_end}")
     back_to_week_btn.hide()
     canvas.draw()
@@ -444,7 +436,6 @@ class MainWindow(QtWidgets.QWidget):
         self.setWindowTitle("Screen Time Tracker")
         self.setStyleSheet("background-color: #1C1C1E; color: white;")
         self.showMaximized()
-        self.setFixedSize(self.size())
         layout = QtWidgets.QVBoxLayout()
         control_layout = QHBoxLayout()
         layout.addLayout(control_layout)
@@ -480,7 +471,6 @@ class MainWindow(QtWidgets.QWidget):
             "background-color: #3a3a3c; color: white; border-radius: 5px; padding: 5px;"
         )
         layout.addWidget(stop_btn)
-        print("Defining new canvas")
         global canvas
         canvas = PlotCanvas(width=10, height=6, dpi=100)
         canvas.mpl_connect("button_press_event", detailed_view_on_click)
@@ -517,8 +507,8 @@ class MainWindow(QtWidgets.QWidget):
             2000,
         )
 
+
 def update_log():
-    print("update_log invoked")
     global prev_window, prev_time
     window_info = get_focused_app()
     if window_info != prev_window:
@@ -534,7 +524,6 @@ def update_log():
             write_db(day_key, prev_window, time_diff.total_seconds())
         prev_window = window_info
         prev_time = current_time
-    update_plot()
     QtCore.QTimer.singleShot(500, update_log)
 
 
@@ -549,6 +538,7 @@ def main():
 
     current_start = datetime.today().date() - timedelta(days=datetime.today().weekday())
     current_end = current_start + timedelta(days=6)
+    update_plot()
     update_log()
     window.show()
     sys.exit(app.exec_())
