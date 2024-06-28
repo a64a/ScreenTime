@@ -26,10 +26,10 @@ matplotlib.use("Qt5Agg")
 detailed_view_active = False
 DATABASE = "app_usage.db"
 CATEGORY_COLORS = {
-    "Uncategorized": "#3a3a3c",
-    "Utility": "#fc9c0c",
-    "Entertainment": "#0a84ff",
-    "Social": "#4ac5db",
+    "Uncategorized": "#606060",
+    "Utility": "#3e2c4e",
+    "Entertainment": "#929292",
+    "Social": "#9B86BD",
 }
 
 if platform.system() == "Darwin":
@@ -58,8 +58,15 @@ elif platform.system() == "Windows":
 
     def get_focused_app():
         hwnd = win32gui.GetForegroundWindow()
-        window_text = win32gui.GetWindowText(hwnd)
-        return window_text if window_text else "No focused window"
+        if hwnd:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            try:
+                process = psutil.Process(pid)
+                app_name = process.name()
+                return app_name
+            except psutil.NoSuchProcess:
+                return "Unknown application"
+        return "No focused window"
 
 elif platform.system() == "Linux":
     from ewmh import EWMH
@@ -289,7 +296,7 @@ def format_time(td):
 
 
 def update_plot():
-    global detailed_view_active
+    global detailed_view_active, bars
     if detailed_view_active:
         return
 
@@ -308,20 +315,23 @@ def update_plot():
                 category_totals[category][day_index] += usage_seconds
 
     bottom_values = [0] * len(day_keys)
+    bars = []
     for category, totals in category_totals.items():
         color = CATEGORY_COLORS.get(category, 'gray')
         totals_hours = [total / 3600 for total in totals]
-        canvas.ax.bar(range(len(day_keys)), totals_hours, bottom=bottom_values, label=category, color=color,
+        bar_container = canvas.ax.bar(range(len(day_keys)), totals_hours, bottom=bottom_values, label=category, color=color,
                       edgecolor='#1c1e1e', linewidth=2, capstyle='round')
+        bars.extend(bar_container)
         bottom_values = [sum(x) for x in zip(bottom_values, totals_hours)]
 
     def on_click(event):
-        for bar in canvas.ax.patches:
-            if bar.contains(event)[0]:
-                day_index = int(bar.get_x() + bar.get_width() / 2)
-                day_str = day_keys[day_index]
-                show_day(day_str, app_data.get(day_str, {}))
-                return
+        if not detailed_view_active:
+            for bar in bars:
+                if bar.contains(event)[0]:
+                    day_index = int(bar.get_x() + bar.get_width() / 2)
+                    day_str = day_keys[day_index]
+                    show_day(day_str, app_data.get(day_str, {}))
+                    return
 
     canvas.mpl_connect("button_press_event", on_click)
     canvas.ax.set_xticks(range(len(day_keys)))
@@ -339,6 +349,8 @@ def update_plot():
     date_range_lbl.setText(f"Viewing: {current_start} to {current_end}")
     back_to_week_btn.hide()
     canvas.draw()
+
+
 
 
 def set_date_range(start, end=None):
@@ -385,6 +397,8 @@ class MainWindow(QtWidgets.QWidget):
         super().__init__()
         self.setWindowTitle("Screen Time Tracker")
         self.setStyleSheet("background-color: #1C1C1E; color: white;")
+        self.showMaximized()
+        self.setFixedSize(self.size())
         layout = QtWidgets.QVBoxLayout()
         control_layout = QHBoxLayout()
         layout.addLayout(control_layout)
@@ -487,8 +501,13 @@ def main():
     current_start = datetime.today().date() - timedelta(days=datetime.today().weekday())
     current_end = current_start + timedelta(days=6)
     update_log()
-    window.showMaximized()
+    window.show()
     sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
+
 
 
 if __name__ == "__main__":
