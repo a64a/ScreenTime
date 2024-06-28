@@ -1,4 +1,3 @@
-import os
 import platform
 import sqlite3
 import sys
@@ -10,6 +9,7 @@ import numpy as np
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
+    QApplication,
     QLabel,
     QHBoxLayout,
     QScrollArea,
@@ -32,6 +32,30 @@ CATEGORY_COLORS = {
     "Social": "#9B86BD",
 }
 
+
+class MyApplication(QApplication):
+    @staticmethod
+    def applicationSupportsSecureRestorableState():
+        return True
+
+
+def check_dependencies():
+    try:
+        import psutil
+    except ImportError:
+        print("psutil is not installed. Please install it using 'pip install psutil'.")
+        sys.exit(1)
+
+    if platform.system() == "Linux":
+        try:
+            import ewmh
+        except ImportError:
+            print("ewmh is not installed. Please install it using 'pip install ewmh'.")
+            sys.exit(1)
+
+
+check_dependencies()
+
 if platform.system() == "Darwin":
     from Quartz import (
         CGWindowListCopyWindowInfo,
@@ -51,9 +75,7 @@ if platform.system() == "Darwin":
 
 elif platform.system() == "Windows":
     import win32gui
-    from elevate import elevate
-
-    elevate()
+    import psutil
 
 
     def get_focused_app():
@@ -70,9 +92,6 @@ elif platform.system() == "Windows":
 
 elif platform.system() == "Linux":
     from ewmh import EWMH
-
-    if os.geteuid() != 0:
-        os.execvp("sudo", ["sudo"] + ["python3"] + sys.argv)
 
 
     def get_focused_app():
@@ -116,18 +135,18 @@ def read_db():
     cursor = conn.cursor()
     cursor.execute("SELECT day FROM day_tables")
     days = cursor.fetchall()
-    app_data = {}
+    appdata = {}
     for day_tuple in days:
         day = day_tuple[0]
         table_name = get_table_name(day)
         cursor.execute(f"SELECT app_name, usage_seconds FROM {table_name}")
         data = cursor.fetchall()
-        app_data[day] = {app_name: usage_seconds for app_name, usage_seconds in data}
+        appdata[day] = {app_name: usage_seconds for app_name, usage_seconds in data}
     cursor.execute("SELECT app_name, category FROM app_categories")
     categories = cursor.fetchall()
-    app_categories = {app_name: category for app_name, category in categories}
+    appcategories = {app_name: category for app_name, category in categories}
     conn.close()
-    return app_data, app_categories
+    return appdata, appcategories
 
 
 def write_db(date, app_name, usage_seconds):
@@ -166,7 +185,7 @@ def set_app_category(app_name, category):
 
 
 class PlotCanvas(FigureCanvas):
-    def __init__(self, Parent=None, width=8, height=6, dpi=100):
+    def __init__(self, width=8, height=6, dpi=100):
         plt.style.use("dark_background")
         fig, self.ax = plt.subplots(figsize=(width, height), dpi=dpi)
         fig.patch.set_facecolor("#1C1C1E")
@@ -319,8 +338,9 @@ def update_plot():
     for category, totals in category_totals.items():
         color = CATEGORY_COLORS.get(category, 'gray')
         totals_hours = [total / 3600 for total in totals]
-        bar_container = canvas.ax.bar(range(len(day_keys)), totals_hours, bottom=bottom_values, label=category, color=color,
-                      edgecolor='#1c1e1e', linewidth=2, capstyle='round')
+        bar_container = canvas.ax.bar(range(len(day_keys)), totals_hours, bottom=bottom_values, label=category,
+                                      color=color,
+                                      edgecolor='#1c1e1e', linewidth=2, capstyle='round')
         bars.extend(bar_container)
         bottom_values = [sum(x) for x in zip(bottom_values, totals_hours)]
 
@@ -328,8 +348,8 @@ def update_plot():
         if not detailed_view_active:
             for bar in bars:
                 if bar.contains(event)[0]:
-                    day_index = int(bar.get_x() + bar.get_width() / 2)
-                    day_str = day_keys[day_index]
+                    dayindex = int(bar.get_x() + bar.get_width() / 2)
+                    day_str = day_keys[dayindex]
                     show_day(day_str, app_data.get(day_str, {}))
                     return
 
@@ -349,8 +369,6 @@ def update_plot():
     date_range_lbl.setText(f"Viewing: {current_start} to {current_end}")
     back_to_week_btn.hide()
     canvas.draw()
-
-
 
 
 def set_date_range(start, end=None):
@@ -389,7 +407,24 @@ def back_to_week():
 
 
 def stop_tracking():
+    save_data_on_exit()
     QtWidgets.qApp.quit()
+
+
+def save_data_on_exit():
+    global prev_window, prev_time
+    current_time = datetime.now()
+    time_diff = current_time - prev_time
+    if prev_window:
+        day_key = datetime.now().strftime("%Y-%m-%d")
+        if day_key not in app_data:
+            app_data[day_key] = {}
+        app_data[day_key][prev_window] = (
+                app_data[day_key].get(prev_window, 0) + time_diff.total_seconds()
+        )
+        write_db(day_key, prev_window, time_diff.total_seconds())
+    prev_window = ""
+    prev_time = current_time
 
 
 class MainWindow(QtWidgets.QWidget):
@@ -435,7 +470,7 @@ class MainWindow(QtWidgets.QWidget):
         )
         layout.addWidget(stop_btn)
         global canvas
-        canvas = PlotCanvas(self, width=10, height=6, dpi=100)
+        canvas = PlotCanvas(width=10, height=6, dpi=100)
         scroll = QScrollArea()
         scroll.setWidget(canvas)
         scroll.setWidgetResizable(True)
@@ -452,7 +487,7 @@ class MainWindow(QtWidgets.QWidget):
         show_action = QAction("Show", self)
         quit_action = QAction("Exit", self)
         show_action.triggered.connect(self.show)
-        quit_action.triggered.connect(QtWidgets.qApp.quit)
+        quit_action.triggered.connect(stop_tracking)
         tray_menu = QMenu()
         tray_menu.addAction(show_action)
         tray_menu.addAction(quit_action)
@@ -471,16 +506,16 @@ class MainWindow(QtWidgets.QWidget):
 
 
 def main():
-    global app_data, app_categories, current_start, current_end
+    global app_data, app_categories, current_start, current_end, prev_window, prev_time
     setup_db()
     app_data, app_categories = read_db()
     prev_window = ""
     prev_time = datetime.now()
-    app = QtWidgets.QApplication(sys.argv)
+    app = MyApplication(sys.argv)
     window = MainWindow()
 
     def update_log():
-        nonlocal prev_window, prev_time
+        global prev_window, prev_time
         window_info = get_focused_app()
         if window_info != prev_window:
             current_time = datetime.now()
@@ -496,18 +531,13 @@ def main():
             prev_window = window_info
             prev_time = current_time
         update_plot()
-        QtCore.QTimer.singleShot(100, update_log)
+        QtCore.QTimer.singleShot(500, update_log)  # Adjusted frequency to 500 ms
 
     current_start = datetime.today().date() - timedelta(days=datetime.today().weekday())
     current_end = current_start + timedelta(days=6)
     update_log()
     window.show()
     sys.exit(app.exec_())
-
-
-if __name__ == "__main__":
-    main()
-
 
 
 if __name__ == "__main__":

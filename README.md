@@ -12,7 +12,7 @@ Prerequisites
 ## Dependencies
 Install the required dependencies using pip:
 ```
-pip install PyQt5 matplotlib numpy pypiwin32 elevate ewmh
+pip install PyQt5 matplotlib numpy pypiwin32 elevate ewmh psutils
 ```
 ## Setup
 1. Clone the repository or download the source code.
