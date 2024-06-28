@@ -10,9 +10,16 @@ A Python application to track and visualize your screen time usage. It logs acti
 Prerequisites
 - Python 3.7 or higher
 ## Dependencies
-Install the required dependencies using pip:
+Install the required dependencies depending on your operating system:
 ```
-pip install PyQt5 matplotlib numpy pypiwin32 elevate ewmh psutils
+Windows
+pip install PyQt5 matplotlib numpy pypiwin32 psutils
+
+Linux
+pip install PyQt5 matplotlib numpy ewmh
+
+MacOS 
+pip install PyQt5 matplotlib numpy pyobjc-framework-Quartz
 ```
 ## Setup
 1. Clone the repository or download the source code.
