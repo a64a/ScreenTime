@@ -204,6 +204,7 @@ def invert_color(color):
 
 
 def show_day(day, apps_data):
+    print("show_day invoked")
     global detailed_view_active
     detailed_view_active = True
     canvas.ax.clear()
@@ -306,8 +307,25 @@ def show_day(day, apps_data):
     back_to_week_btn.show()
     canvas.draw()
 
+def detailed_view_on_click(event):
+    global detailed_view_active, bars
+    if detailed_view_active:
+        return
+
+    start_date = current_start
+    end_date = current_end
+    day_keys = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((end_date - start_date).days + 1)]
+
+    if not detailed_view_active:
+        for bar in bars:
+            if bar.contains(event)[0]:
+                dayindex = int(bar.get_x() + bar.get_width() / 2)
+                day_str = day_keys[dayindex]
+                show_day(day_str, app_data.get(day_str, {}))
+                return
 
 def update_plot():
+    print("update_plot invoked")
     global detailed_view_active, bars
     if detailed_view_active:
         return
@@ -337,16 +355,6 @@ def update_plot():
         bars.extend(bar_container)
         bottom_values = [sum(x) for x in zip(bottom_values, totals_hours)]
 
-    def on_click(event):
-        if not detailed_view_active:
-            for bar in bars:
-                if bar.contains(event)[0]:
-                    dayindex = int(bar.get_x() + bar.get_width() / 2)
-                    day_str = day_keys[dayindex]
-                    show_day(day_str, app_data.get(day_str, {}))
-                    return
-
-    canvas.mpl_connect("button_press_event", on_click)
     canvas.ax.set_xticks(range(len(day_keys)))
     canvas.ax.set_xticklabels(day_names, ha='center', color='gray', fontsize=12)
     canvas.ax.set_xlabel('', fontsize=0)
@@ -472,8 +480,10 @@ class MainWindow(QtWidgets.QWidget):
             "background-color: #3a3a3c; color: white; border-radius: 5px; padding: 5px;"
         )
         layout.addWidget(stop_btn)
+        print("Defining new canvas")
         global canvas
         canvas = PlotCanvas(width=10, height=6, dpi=100)
+        canvas.mpl_connect("button_press_event", detailed_view_on_click)
         scroll = QScrollArea()
         scroll.setWidget(canvas)
         scroll.setWidgetResizable(True)
@@ -507,6 +517,26 @@ class MainWindow(QtWidgets.QWidget):
             2000,
         )
 
+def update_log():
+    print("update_log invoked")
+    global prev_window, prev_time
+    window_info = get_focused_app()
+    if window_info != prev_window:
+        current_time = datetime.now()
+        time_diff = current_time - prev_time
+        if prev_window:
+            day_key = datetime.now().strftime("%Y-%m-%d")
+            if day_key not in app_data:
+                app_data[day_key] = {}
+            app_data[day_key][prev_window] = (
+                    app_data[day_key].get(prev_window, 0) + time_diff.total_seconds()
+            )
+            write_db(day_key, prev_window, time_diff.total_seconds())
+        prev_window = window_info
+        prev_time = current_time
+    update_plot()
+    QtCore.QTimer.singleShot(500, update_log)
+
 
 def main():
     global app_data, app_categories, current_start, current_end, prev_window, prev_time
@@ -516,25 +546,6 @@ def main():
     prev_time = datetime.now()
     app = MyApplication(sys.argv)
     window = MainWindow()
-
-    def update_log():
-        global prev_window, prev_time
-        window_info = get_focused_app()
-        if window_info != prev_window:
-            current_time = datetime.now()
-            time_diff = current_time - prev_time
-            if prev_window:
-                day_key = datetime.now().strftime("%Y-%m-%d")
-                if day_key not in app_data:
-                    app_data[day_key] = {}
-                app_data[day_key][prev_window] = (
-                        app_data[day_key].get(prev_window, 0) + time_diff.total_seconds()
-                )
-                write_db(day_key, prev_window, time_diff.total_seconds())
-            prev_window = window_info
-            prev_time = current_time
-        update_plot()
-        QtCore.QTimer.singleShot(500, update_log)
 
     current_start = datetime.today().date() - timedelta(days=datetime.today().weekday())
     current_end = current_start + timedelta(days=6)
