@@ -34,8 +34,11 @@ CATEGORY_COLORS = {
 
 
 class MyApplication(QApplication):
+    def __init__(self, argv):
+        super().__init__(argv)
+
     @staticmethod
-    def applicationSupportsSecureRestorableState():
+    def applicationSupportsSecureRestorableState(app):
         return True
 
 
@@ -531,7 +534,7 @@ def main():
             prev_window = window_info
             prev_time = current_time
         update_plot()
-        QtCore.QTimer.singleShot(500, update_log)  # Adjusted frequency to 500 ms
+        QtCore.QTimer.singleShot(500, update_log)
 
     current_start = datetime.today().date() - timedelta(days=datetime.today().weekday())
     current_end = current_start + timedelta(days=6)
