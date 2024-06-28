@@ -13,13 +13,13 @@ Prerequisites
 Install the required dependencies depending on your operating system:
 ```
 Windows
-pip install PyQt5 matplotlib numpy pypiwin32 psutils
+pip install matplotlib numpy psutil PyQt5 pywin32
 
 Linux
-pip install PyQt5 matplotlib numpy ewmh
+pip install matplotlib numpy psutil PyQt5 ewmh
 
 MacOS 
-pip install PyQt5 matplotlib numpy pyobjc-framework-Quartz
+pip install matplotlib numpy psutil PyQt5 pyobjc-framework-Quartz
 ```
 ## Setup
 1. Clone the repository or download the source code.
