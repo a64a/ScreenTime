@@ -304,16 +304,6 @@ def show_day(day, apps_data):
     canvas.draw()
 
 
-def format_time(td):
-    total_seconds = td.total_seconds()
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    if hours > 0:
-        return f"{hours}h {minutes}m"
-    else:
-        return f"{minutes}m"
-
-
 def update_plot():
     global detailed_view_active, bars
     if detailed_view_active:
@@ -369,6 +359,16 @@ def update_plot():
     date_range_lbl.setText(f"Viewing: {current_start} to {current_end}")
     back_to_week_btn.hide()
     canvas.draw()
+
+
+def format_time(td):
+    total_seconds = td.total_seconds()
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    else:
+        return f"{minutes}m"
 
 
 def set_date_range(start, end=None):
