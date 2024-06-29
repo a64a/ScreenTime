@@ -39,6 +39,7 @@ if platform.system() == "Darwin":
         kCGNullWindowID,
     )
 
+
     def get_focused_app():
         options = kCGWindowListOptionOnScreenOnly
         window_list = CGWindowListCopyWindowInfo(options, kCGNullWindowID)
@@ -54,6 +55,7 @@ elif platform.system() == "Windows":
 
     elevate()
 
+
     def get_focused_app():
         hwnd = win32gui.GetForegroundWindow()
         window_text = win32gui.GetWindowText(hwnd)
@@ -64,6 +66,7 @@ elif platform.system() == "Linux":
 
     if os.geteuid() != 0:
         os.execvp("sudo", ["sudo"] + ["python3"] + sys.argv)
+
 
     def get_focused_app():
         ewmh = EWMH()
@@ -156,7 +159,7 @@ def set_app_category(app_name, category):
 
 
 class PlotCanvas(FigureCanvas):
-    def __init__(self, parent=None, width=8, height=6, dpi=100):
+    def __init__(self, Parent=None, width=8, height=6, dpi=100):
         plt.style.use("dark_background")
         fig, self.ax = plt.subplots(figsize=(width, height), dpi=dpi)
         fig.patch.set_facecolor("#1C1C1E")
@@ -168,7 +171,7 @@ def invert_color(color):
     if isinstance(color, str):
         color = matplotlib.colors.to_rgba(color)
     r, g, b, _ = color
-    return (1 - r, 1 - g, 1 - b)
+    return 1 - r, 1 - g, 1 - b
 
 
 def show_day(day, apps_data):
@@ -216,7 +219,6 @@ def show_day(day, apps_data):
     )
 
     for i, (wedge, app) in enumerate(zip(wedges, app_names)):
-        color = colors[i]
         angle = (wedge.theta2 + wedge.theta1) / 2
         x = wedge.r * np.cos(np.radians(angle))
         y = wedge.r * np.sin(np.radians(angle))
@@ -332,10 +334,6 @@ def update_plot():
     canvas.ax.spines['left'].set_color('white')
     canvas.ax.spines['right'].set_color('white')
     canvas.ax.tick_params(axis='both', colors='white')
-    handles, labels = canvas.ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    legend = canvas.ax.legend(by_label.values(), by_label.keys(), loc='upper center', bbox_to_anchor=(0.5, -0.1),
-                              fontsize=10, ncol=len(by_label), frameon=False)
     canvas.ax.relim()
     canvas.ax.autoscale_view()
     date_range_lbl.setText(f"Viewing: {current_start} to {current_end}")
@@ -372,6 +370,16 @@ def this_week():
     set_date_range(start_of_week, end_of_week)
 
 
+def back_to_week():
+    canvas.ax.clear()
+    set_date_range(current_start - timedelta(days=current_start.weekday()), None)
+    update_plot()
+
+
+def stop_tracking():
+    QtWidgets.qApp.quit()
+
+
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -404,7 +412,7 @@ class MainWindow(QtWidgets.QWidget):
         back_to_week_btn.setStyleSheet(
             "background-color: #3a3a3c; color: white; border-radius: 5px; padding: 5px;"
         )
-        back_to_week_btn.clicked.connect(self.back_to_week)
+        back_to_week_btn.clicked.connect(back_to_week)
         layout.addWidget(back_to_week_btn)
         back_to_week_btn.hide()
         stop_btn = QPushButton("Stop Tracking")
@@ -421,7 +429,7 @@ class MainWindow(QtWidgets.QWidget):
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         layout.addWidget(scroll)
         self.setLayout(layout)
-        stop_btn.clicked.connect(self.stop_tracking)
+        stop_btn.clicked.connect(stop_tracking)
         prev_btn.clicked.connect(prev_week)
         next_btn.clicked.connect(next_week)
         this_week_btn.clicked.connect(this_week)
@@ -446,14 +454,6 @@ class MainWindow(QtWidgets.QWidget):
             QSystemTrayIcon.Information,
             2000,
         )
-
-    def stop_tracking(self):
-        QtWidgets.qApp.quit()
-
-    def back_to_week(self):
-        canvas.ax.clear()
-        set_date_range(current_start - timedelta(days=current_start.weekday()), None)
-        update_plot()
 
 
 def main():
